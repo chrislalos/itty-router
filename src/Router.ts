@@ -57,6 +57,7 @@ export type RouterType<R = Route, Args extends any[] = any[]> = {
   __proto__: RouterType<R>,
   routes: RouteEntry[],
   handle: <A extends any[] = Args>(request: RequestLike, ...extra: Equal<R, Args> extends true ? A : Args) => Promise<any>
+  fetch: <A extends any[] = Args>(request: RequestLike, ...extra: Equal<R, Args> extends true ? A : Args) => Promise<any>
   all: R,
   delete: R,
   get: R,
@@ -66,6 +67,22 @@ export type RouterType<R = Route, Args extends any[] = any[]> = {
   post: R,
   put: R,
 } & CustomRoutes<R>
+
+const handle = (routes: RouteEntry[] = []) => async (request: RequestLike, ...args) => {
+  let response, match, url = new URL(request.url), query: any = request.query = { __proto__: null }
+  for (let [k, v] of url.searchParams) {
+    query[k] = query[k] === undefined ? v : [query[k], v].flat()
+  }
+  for (let [method, regex, handlers, path] of routes) {
+    if ((method === request.method || method === 'ALL') && (match = url.pathname.match(regex))) {
+      request.params = match.groups || {}                                     // embed params in request
+      request.route = path                                                    // embed route path in request
+      for (let handler of handlers) {
+        if ((response = await handler(request.proxy || request, ...args)) !== undefined) return response
+      }
+    }
+  }
+}
 
 export const Router = <
   RequestType = IRequest,
@@ -93,19 +110,7 @@ export const Router = <
         ) && receiver
     }),
     routes,
-    async handle (request: RequestLike, ...args)  {
-      let response, match, url = new URL(request.url), query: any = request.query = { __proto__: null }
-      for (let [k, v] of url.searchParams) {
-        query[k] = query[k] === undefined ? v : [query[k], v].flat()
-      }
-      for (let [method, regex, handlers, path] of routes) {
-        if ((method === request.method || method === 'ALL') && (match = url.pathname.match(regex))) {
-          request.params = match.groups || {}                                     // embed params in request
-          request.route = path                                                    // embed route path in request
-          for (let handler of handlers) {
-            if ((response = await handler(request.proxy || request, ...args)) !== undefined) return response
-          }
-        }
-      }
-    }
+    handle: handle(routes),
+    fetch: handle(routes),
   })
+

@@ -49,6 +49,12 @@ describe('flow(router: RouterType, options: FlowOptions): RequestHandler', () =>
       expect(flowed.fetch).toBe(flowed)
     })
 
+    it('router => { fetch: router.handle }', async () => {
+      let response1 = await router.handle(request('/items'))
+      let response2 = await router.fetch(request('/items'))
+      expect(response1).toEqual(response2)
+    })
+
     // probably remove this one?
     // it('flow(router)... later: router => { fetch: flow(router) }', async () => {
     //   const flowed = flow(router)
